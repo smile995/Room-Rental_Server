@@ -62,7 +62,12 @@ async function run() {
     });
     app.get("/rooms", async (req, res) => {
       try {
-        const result = await roomsCollection.find().toArray();
+        const { category } = req.query;
+        let query = {};
+        if (category !== "null") {
+          query = { category };
+        }
+        const result = await roomsCollection.find(query).toArray();
         res.send(result);
       } catch (error) {
         res.send(error);
