@@ -6,7 +6,7 @@ const cookieParser = require("cookie-parser");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const jwt = require("jsonwebtoken");
 
-const port = process.env.PORT || 8000;
+const port = process.env.PORT || 5000;
 
 // middleware
 const corsOptions = {
@@ -30,9 +30,10 @@ const verifyToken = async (req, res, next) => {
     if (err) {
       console.log(err);
       return res.status(401).send({ message: "unauthorized access" });
+    } else {
+      req.user = decoded;
+      next();
     }
-    req.user = decoded;
-    next();
   });
 };
 
@@ -48,6 +49,36 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
     // auth related api
+    const roomsCollection = client.db("Room_Rental").collection("rooms");
+    // rooms related apis are blew
+    app.post("/rooms", async (req, res) => {
+      const room = req.body;
+      try {
+        const result = await roomsCollection.insertOne(room);
+        res.send(result);
+      } catch (error) {
+        res.send(error);
+      }
+    });
+    app.get("/rooms", async (req, res) => {
+      try {
+        const result = await roomsCollection.find().toArray();
+        res.send(result);
+      } catch (error) {
+        res.send(error);
+      }
+    });
+    app.get("/room/:id", async (req, res) => {
+      try {
+        const { id } = req.params;
+        const query = { _id: new ObjectId(id) };
+        const result = await roomsCollection.findOne(query);
+        res.send(result);
+      } catch (error) {
+        res.send(error);
+      }
+    });
+
     app.post("/jwt", async (req, res) => {
       const user = req.body;
       const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
@@ -89,9 +120,9 @@ async function run() {
 run().catch(console.dir);
 
 app.get("/", (req, res) => {
-  res.send("Hello from StayVista Server..");
+  res.send("Hello from Room Rental Server..");
 });
 
 app.listen(port, () => {
-  console.log(`StayVista is running on port ${port}`);
+  console.log(`Room Rental is running on port ${port}`);
 });
