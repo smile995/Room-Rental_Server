@@ -60,6 +60,18 @@ async function run() {
         res.send(error);
       }
     });
+
+    app.get("/rooms/:email", async (req, res) => {
+      const {email} = req.params;
+      const query={"host.email":email}
+      try {
+        const result = await roomsCollection.find(query).toArray();
+        res.send(result);
+      } catch (error) {
+        res.send(error);
+      }
+    });
+    
     app.get("/rooms", async (req, res) => {
       try {
         const { category } = req.query;
