@@ -71,7 +71,18 @@ async function run() {
         res.send(error);
       }
     });
-    
+
+    app.delete("/rooms/:id", async (req, res) => {
+      const {id} = req.params;
+      const query={_id:new ObjectId(id)}
+      try {
+        const result = await roomsCollection.deleteOne(query);
+        res.send(result);
+      } catch (error) {
+        res.send(error);
+      }
+    });
+
     app.get("/rooms", async (req, res) => {
       try {
         const { category } = req.query;
