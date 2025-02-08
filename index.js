@@ -50,6 +50,7 @@ async function run() {
   try {
     // auth related api
     const roomsCollection = client.db("Room_Rental").collection("rooms");
+    const usersCollection = client.db("Room_Rental").collection("users");
     // rooms related apis are blew
     app.post("/rooms", async (req, res) => {
       const room = req.body;
@@ -62,8 +63,8 @@ async function run() {
     });
 
     app.get("/rooms/:email", async (req, res) => {
-      const {email} = req.params;
-      const query={"host.email":email}
+      const { email } = req.params;
+      const query = { "host.email": email };
       try {
         const result = await roomsCollection.find(query).toArray();
         res.send(result);
@@ -73,8 +74,8 @@ async function run() {
     });
 
     app.delete("/rooms/:id", async (req, res) => {
-      const {id} = req.params;
-      const query={_id:new ObjectId(id)}
+      const { id } = req.params;
+      const query = { _id: new ObjectId(id) };
       try {
         const result = await roomsCollection.deleteOne(query);
         res.send(result);
@@ -106,7 +107,30 @@ async function run() {
         res.send(error);
       }
     });
+    // users related apis are below
+    app.put("/users", async (req, res) => {
+      const user = req.body;
+      const query = { email: user?.email };
+      const isExist = await usersCollection.findOne(query);
 
+      if (!!isExist && user?.status === "Requested") {
+        const updatedDoc = {
+          $set: {
+            status: user?.status,
+          },
+        };
+        const result = await usersCollection.updateOne(query, updatedDoc);
+        res.send(result);
+      } else {
+        const result = await usersCollection.insertOne(user);
+        res.send(result);
+      }
+    });
+
+    app.get("/users", async (req, res) => {
+      const result = await usersCollection.find().toArray();
+      res.send(result);
+    });
     app.post("/jwt", async (req, res) => {
       const user = req.body;
       const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
