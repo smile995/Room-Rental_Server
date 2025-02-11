@@ -121,7 +121,7 @@ async function run() {
         };
         const result = await usersCollection.updateOne(query, updatedDoc);
         res.send(result);
-      } else if (!user) {
+      } else if (!isExist) {
         const result = await usersCollection.insertOne(user);
         res.send(result);
       }
@@ -137,6 +137,21 @@ async function run() {
       const query = { email: email };
       const result = await usersCollection.findOne(query);
       res.send(result?.role);
+    });
+
+    app.patch("/users/update-role/:email", async (req, res) => {
+      const { email } = req.params;
+      const role = req.body;
+      const query = { email };
+      const updatedDoc = {
+        $set: {
+          role: role,
+          status: "verified",
+          timeStamp: Date.now(),
+        },
+      };
+      const result= await usersCollection.updateOne(query,updatedDoc)
+      res.send(result)
     });
     app.post("/jwt", async (req, res) => {
       const user = req.body;
