@@ -140,18 +140,21 @@ async function run() {
     });
 
     app.patch("/users/update-role/:email", async (req, res) => {
-      const { email } = req.params;
-      const role = req.body;
+      const  email  = req.params;
+      const newRole = req.body;
       const query = { email };
       const updatedDoc = {
         $set: {
-          role: role,
+          role: newRole,
           status: "verified",
           timeStamp: Date.now(),
         },
       };
-      const result= await usersCollection.updateOne(query,updatedDoc)
-      res.send(result)
+      console.log("user email",email);
+      console.log("user role",newRole);
+      
+      // const result= await usersCollection.updateOne(query,updatedDoc)
+      // res.send(result)
     });
     app.post("/jwt", async (req, res) => {
       const user = req.body;
