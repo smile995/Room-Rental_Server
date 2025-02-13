@@ -19,24 +19,6 @@ app.use(cors(corsOptions));
 app.use(express.json());
 app.use(cookieParser());
 
-// Verify Token Middleware
-const verifyToken = async (req, res, next) => {
-  const token = req.cookies?.token;
-  console.log(token);
-  if (!token) {
-    return res.status(401).send({ message: "unauthorized access" });
-  }
-  jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
-    if (err) {
-      console.log(err);
-      return res.status(401).send({ message: "unauthorized access" });
-    } else {
-      req.user = decoded;
-      next();
-    }
-  });
-};
-
 const uri = `mongodb+srv://${process.env.DATABASE_USER_NAME}:${process.env.DATABASE_PASSWORD}@cluster0.6uwuu.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 const client = new MongoClient(uri, {
   serverApi: {
@@ -51,6 +33,45 @@ async function run() {
     // auth related api
     const roomsCollection = client.db("Room_Rental").collection("rooms");
     const usersCollection = client.db("Room_Rental").collection("users");
+    // verify middlewires
+    // Verify Token Middleware
+    const verifyToken = async (req, res, next) => {
+      const token = req.cookies?.token;
+      if (!token) {
+        return res.status(401).send({ message: "unauthorized access" });
+      }
+      jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
+        if (err) {
+          console.log(err);
+          return res.status(401).send({ message: "unauthorized access" });
+        } else {
+          req.user = decoded;
+          next();
+        }
+      });
+    };
+
+    const verifyAdmin = async (req, res, next) => {
+      const user = req.user;
+      const query = { email: user?.email };
+      const isAdmin = await usersCollection.findOne(query);
+      if (!isAdmin || isAdmin.role !== "admin") {
+        return res.send({ message: "Unauthorized Access" }).status(401);
+      } else {
+        next();
+      }
+    };
+
+    const verifyHost = async (req, res, next) => {
+      const user = req.user;
+      const query = { email: user?.email };
+      const isAdmin = await usersCollection.findOne(query);
+      if (!isAdmin || isAdmin.role !== "host") {
+        return res.send({ message: "Unauthorized Access" }).status(401);
+      } else {
+        next();
+      }
+    };
     // rooms related apis are blew
     app.post("/rooms", async (req, res) => {
       const room = req.body;
@@ -62,7 +83,7 @@ async function run() {
       }
     });
 
-    app.get("/rooms/:email", async (req, res) => {
+    app.get("/rooms/:email", verifyToken, verifyHost, async (req, res) => {
       const { email } = req.params;
       const query = { "host.email": email };
       try {
@@ -73,7 +94,7 @@ async function run() {
       }
     });
 
-    app.delete("/rooms/:id", async (req, res) => {
+    app.delete("/rooms/:id", verifyToken, verifyHost, async (req, res) => {
       const { id } = req.params;
       const query = { _id: new ObjectId(id) };
       try {
@@ -97,7 +118,7 @@ async function run() {
         res.send(error);
       }
     });
-    app.get("/room/:id", async (req, res) => {
+    app.get("/room/:id", verifyToken, async (req, res) => {
       try {
         const { id } = req.params;
         const query = { _id: new ObjectId(id) };
@@ -127,32 +148,33 @@ async function run() {
       }
     });
 
-    app.get("/users", async (req, res) => {
+    app.get("/users", verifyToken,verifyAdmin, async (req, res) => {
       const result = await usersCollection.find().toArray();
       res.send(result);
     });
 
-    app.get("/role/:email", async (req, res) => {
+    app.get("/role/:email", verifyToken, async (req, res) => {
       const { email } = req.params;
       const query = { email: email };
       const result = await usersCollection.findOne(query);
       res.send(result?.role);
     });
 
-    app.patch("/users/update-role/:email", async (req, res) => {
-      const  {email}  = req.params;
+    app.patch("/users/update-role/:email",verifyToken,verifyAdmin, async (req, res) => {
+      const { email } = req.params;
       const data = req.body;
-      const query = { email:email };
+      const query = { email: email };
       const updatedDoc = {
         $set: {
-        role:data?.role,
-        status:"verified",
+          role: data?.role,
+          status: "verified",
           timeStamp: Date.now(),
         },
       };
-      const result= await usersCollection.updateOne(query,updatedDoc)
-      res.send(result)
+      const result = await usersCollection.updateOne(query, updatedDoc);
+      res.send(result);
     });
+
     app.post("/jwt", async (req, res) => {
       const user = req.body;
       const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
@@ -176,7 +198,6 @@ async function run() {
             sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
           })
           .send({ success: true });
-        console.log("Logout successful");
       } catch (err) {
         res.status(500).send(err);
       }
