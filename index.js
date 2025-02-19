@@ -5,6 +5,7 @@ const cors = require("cors");
 const cookieParser = require("cookie-parser");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const jwt = require("jsonwebtoken");
+const stripe = require("stripe")(process.env.STRIPE_SK);
 
 const port = process.env.PORT || 5000;
 
@@ -118,7 +119,7 @@ async function run() {
         res.send(error);
       }
     });
-    app.get("/room/:id", verifyToken, async (req, res) => {
+    app.get("/room/:id", async (req, res) => {
       try {
         const { id } = req.params;
         const query = { _id: new ObjectId(id) };
@@ -148,7 +149,7 @@ async function run() {
       }
     });
 
-    app.get("/users", verifyToken,verifyAdmin, async (req, res) => {
+    app.get("/users", verifyToken, verifyAdmin, async (req, res) => {
       const result = await usersCollection.find().toArray();
       res.send(result);
     });
@@ -160,20 +161,25 @@ async function run() {
       res.send(result?.role);
     });
 
-    app.patch("/users/update-role/:email",verifyToken,verifyAdmin, async (req, res) => {
-      const { email } = req.params;
-      const data = req.body;
-      const query = { email: email };
-      const updatedDoc = {
-        $set: {
-          role: data?.role,
-          status: "verified",
-          timeStamp: Date.now(),
-        },
-      };
-      const result = await usersCollection.updateOne(query, updatedDoc);
-      res.send(result);
-    });
+    app.patch(
+      "/users/update-role/:email",
+      verifyToken,
+      verifyAdmin,
+      async (req, res) => {
+        const { email } = req.params;
+        const data = req.body;
+        const query = { email: email };
+        const updatedDoc = {
+          $set: {
+            role: data?.role,
+            status: "verified",
+            timeStamp: Date.now(),
+          },
+        };
+        const result = await usersCollection.updateOne(query, updatedDoc);
+        res.send(result);
+      }
+    );
 
     app.post("/jwt", async (req, res) => {
       const user = req.body;
@@ -202,7 +208,23 @@ async function run() {
         res.status(500).send(err);
       }
     });
+    // create payments intent
+    app.post("/create-payment-intent", async (req, res) => {
+      const { price } = req.body;
+      const priceInCents= parseInt(price*100)
+      
+      try {
+        const paymentIntent = await stripe.paymentIntents.create({
+          amount: priceInCents,
+          currency: "usd",
+          automatic_payment_methods: { enabled: true },
+        });
 
+        res.send({ paymentIntent: paymentIntent.client_secret });
+      } catch (error) {
+        res.status(500).send({ error: error.message });
+      }
+    });
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log(
