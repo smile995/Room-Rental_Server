@@ -32,8 +32,10 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
     // auth related api
-    const roomsCollection = client.db("Room_Rental").collection("rooms");
-    const usersCollection = client.db("Room_Rental").collection("users");
+    const db = client.db("Room_Rental");
+    const roomsCollection = db.collection("rooms");
+    const usersCollection = db.collection("users");
+    const bookingsCollection = db.collection("bookings");
     // verify middlewires
     // Verify Token Middleware
     const verifyToken = async (req, res, next) => {
@@ -209,10 +211,10 @@ async function run() {
       }
     });
     // create payments intent
-    app.post("/create-payment-intent", async (req, res) => {
+    app.post("/create-payment-intent", verifyToken, async (req, res) => {
       const { price } = req.body;
-      const priceInCents= parseInt(price*100)
-      
+      const priceInCents = parseInt(price * 100);
+
       try {
         const paymentIntent = await stripe.paymentIntents.create({
           amount: priceInCents,
@@ -224,6 +226,31 @@ async function run() {
       } catch (error) {
         res.status(500).send({ error: error.message });
       }
+    });
+
+    // update room status then its booked
+    app.patch("/update-status/:id", verifyToken, async (req, res) => {
+      const { id } = req.params;
+      const query = { _id: new ObjectId(id) };
+      const updatedDoc = {
+        $set: {
+          isBooked: ture,
+        },
+      };
+      const result = await roomsCollection.updateOne(query, updatedDoc);
+      res.send(result);
+    });
+    // booking related apis are below
+    app.post("/bookings", verifyToken, (req, res) => {
+      const data = req.body;
+      console.log(data);
+    });
+
+    app.get("/booking/:email", verifyToken, async (req, res) => {
+      const { email } = req.params;
+      const query = { customerEmail: email };
+      const result = await bookingsCollection.find(query).toArray();
+      res.send(result).status(200);
     });
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
