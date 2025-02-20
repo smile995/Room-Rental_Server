@@ -111,9 +111,9 @@ async function run() {
     app.get("/rooms", async (req, res) => {
       try {
         const { category } = req.query;
-        let query = {isBooked:false};
+        let query = { isBooked: false };
         if (category !== "null") {
-          query = {...query, category };
+          query = { ...query, category };
         }
         const result = await roomsCollection.find(query).toArray();
         res.send(result);
@@ -231,7 +231,7 @@ async function run() {
     // update room status then its booked
     app.patch("/update-status/:id", verifyToken, async (req, res) => {
       const { id } = req.params;
-      const {status}= req.body  
+      const { status } = req.body;
       const query = { _id: new ObjectId(id) };
       const updatedDoc = {
         $set: {
@@ -242,12 +242,11 @@ async function run() {
       res.send(result);
     });
     // booking related apis are below
-    app.post("/bookings", verifyToken,async (req, res) => {
+    app.post("/bookings", verifyToken, async (req, res) => {
       const data = req.body;
       delete data._id;
-      const result= await bookingsCollection.insertOne(data)
-      res.send(result)
-     
+      const result = await bookingsCollection.insertOne(data);
+      res.send(result);
     });
 
     app.get("/my-booking/:email", verifyToken, async (req, res) => {
@@ -255,6 +254,26 @@ async function run() {
       const query = { "guest.customerEmail": email };
       const result = await bookingsCollection.find(query).toArray();
       res.send(result).status(200);
+    });
+
+    app.post("/manage/my-bookings/:id", async (req, res) => {
+      const { id } = req.params;
+      const { roomId } = req.body;
+      const bookingDeleteQuery={_id: new ObjectId(id)}
+      const updateRoomQuery={_id: new ObjectId(roomId)}
+      const updatedDoc = {
+        $set: {
+          isBooked: false,
+        },
+      };
+      
+      try {
+        const deleteBooking = await bookingsCollection.deleteOne(bookingDeleteQuery);
+        const updateRoomAvailable= await roomsCollection.updateOne(updateRoomQuery,updatedDoc)
+        res.send({deleteBooking,updateRoomAvailable})
+      } catch (error) {
+        res.send(error.message)
+      }
     });
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
