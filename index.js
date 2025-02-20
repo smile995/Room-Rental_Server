@@ -252,7 +252,7 @@ async function run() {
 
     app.get("/my-booking/:email", verifyToken, async (req, res) => {
       const { email } = req.params;
-      const query = { customerEmail: email };
+      const query = { "guest.customerEmail": email };
       const result = await bookingsCollection.find(query).toArray();
       res.send(result).status(200);
     });
