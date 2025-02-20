@@ -111,9 +111,9 @@ async function run() {
     app.get("/rooms", async (req, res) => {
       try {
         const { category } = req.query;
-        let query = {};
+        let query = {isBooked:false};
         if (category !== "null") {
-          query = { category };
+          query = {...query, category };
         }
         const result = await roomsCollection.find(query).toArray();
         res.send(result);
@@ -231,22 +231,26 @@ async function run() {
     // update room status then its booked
     app.patch("/update-status/:id", verifyToken, async (req, res) => {
       const { id } = req.params;
+      const {status}= req.body  
       const query = { _id: new ObjectId(id) };
       const updatedDoc = {
         $set: {
-          isBooked: ture,
+          isBooked: status,
         },
       };
       const result = await roomsCollection.updateOne(query, updatedDoc);
       res.send(result);
     });
     // booking related apis are below
-    app.post("/bookings", verifyToken, (req, res) => {
+    app.post("/bookings", verifyToken,async (req, res) => {
       const data = req.body;
-      console.log(data);
+      delete data._id;
+      const result= await bookingsCollection.insertOne(data)
+      res.send(result)
+     
     });
 
-    app.get("/booking/:email", verifyToken, async (req, res) => {
+    app.get("/my-booking/:email", verifyToken, async (req, res) => {
       const { email } = req.params;
       const query = { customerEmail: email };
       const result = await bookingsCollection.find(query).toArray();
