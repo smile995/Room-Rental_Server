@@ -255,8 +255,14 @@ async function run() {
       const result = await bookingsCollection.find(query).toArray();
       res.send(result).status(200);
     });
+    app.get("/manage-booking/:email", verifyToken,verifyHost, async (req, res) => {
+      const { email } = req.params;
+      const query = { "host.email": email };
+      const result = await bookingsCollection.find(query).toArray();
+      res.send(result).status(200);
+    });
 
-    app.post("/manage/my-bookings/:id", async (req, res) => {
+    app.post("/manage/my-bookings/:id",verifyToken, async (req, res) => {
       const { id } = req.params;
       const { roomId } = req.body;
       const bookingDeleteQuery={_id: new ObjectId(id)}
