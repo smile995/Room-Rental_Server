@@ -255,31 +255,67 @@ async function run() {
       const result = await bookingsCollection.find(query).toArray();
       res.send(result).status(200);
     });
-    app.get("/manage-booking/:email", verifyToken,verifyHost, async (req, res) => {
-      const { email } = req.params;
-      const query = { "host.email": email };
-      const result = await bookingsCollection.find(query).toArray();
-      res.send(result).status(200);
-    });
+    app.get(
+      "/manage-booking/:email",
+      verifyToken,
+      verifyHost,
+      async (req, res) => {
+        const { email } = req.params;
+        const query = { "host.email": email };
+        const result = await bookingsCollection.find(query).toArray();
+        res.send(result).status(200);
+      }
+    );
 
-    app.post("/manage/my-bookings/:id",verifyToken, async (req, res) => {
+    app.post("/manage/my-bookings/:id", verifyToken, async (req, res) => {
       const { id } = req.params;
       const { roomId } = req.body;
-      const bookingDeleteQuery={_id: new ObjectId(id)}
-      const updateRoomQuery={_id: new ObjectId(roomId)}
+      const bookingDeleteQuery = { _id: new ObjectId(id) };
+      const updateRoomQuery = { _id: new ObjectId(roomId) };
       const updatedDoc = {
         $set: {
           isBooked: false,
         },
       };
-      
+
       try {
-        const deleteBooking = await bookingsCollection.deleteOne(bookingDeleteQuery);
-        const updateRoomAvailable= await roomsCollection.updateOne(updateRoomQuery,updatedDoc)
-        res.send({deleteBooking,updateRoomAvailable})
+        const deleteBooking = await bookingsCollection.deleteOne(
+          bookingDeleteQuery
+        );
+        const updateRoomAvailable = await roomsCollection.updateOne(
+          updateRoomQuery,
+          updatedDoc
+        );
+        res.send({ deleteBooking, updateRoomAvailable });
       } catch (error) {
-        res.send(error.message)
+        res.send(error.message);
       }
+    });
+    // admin,host, guest stat details
+    app.get("/admin-stat",verifyToken,verifyAdmin, async (req, res) => {
+      const totalUsers = await usersCollection.estimatedDocumentCount();
+      const rooms = await roomsCollection.estimatedDocumentCount();
+      const totalBookings = await bookingsCollection.find(
+        {},
+        {
+          projection: {
+            price: 1,
+
+            bookingDate:1,
+          },
+        }
+      ).toArray();
+
+      const chartData= totalBookings.map(booking=>{
+        const day= new Date(booking?.bookingDate).getDate()
+        const month= new Date(booking?.bookingDate).getMonth()+1;
+        return [`${day}/${month}`,booking?.price]
+      })
+
+      chartData.unshift(["Date", "Sales"])
+      const totalPrice= totalBookings.reduce((sum, booking)=>sum+booking.price,0)
+      
+      res.send({ totalUsers, rooms,totalBookings,totalPrice,totalbooking:totalBookings?.length,chartData});
     });
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
@@ -295,7 +331,6 @@ run().catch(console.dir);
 app.get("/", (req, res) => {
   res.send("Hello from Room Rental Server..");
 });
-
 app.listen(port, () => {
   console.log(`Room Rental is running on port ${port}`);
 });
