@@ -329,9 +329,8 @@ async function run() {
         chartData,
       });
     });
-    app.get("/guest-stat/:email", async (req, res) => {
-      const { email } = req.params;
-
+    app.get("/guest-stat", verifyToken, async (req, res) => {
+      const { email } = req?.user;
       const query = { "guest.customerEmail": email };
       const totalBookings = await bookingsCollection
         .find(query, {
@@ -356,13 +355,11 @@ async function run() {
           },
         }
       );
-      const timeStamp=createdAt?.timeStamp;
-      const enteredDate= new Date(timeStamp)
-      const currentDate= new Date()
+      const timeStamp = createdAt?.timeStamp;
+      const enteredDate = new Date(timeStamp);
+      const currentDate = new Date();
       const diffInMs = currentDate - enteredDate;
       const daysAgo = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
-    
-      
 
       chartData.unshift(["Date", "Sales"]);
       const totalPrice = totalBookings.reduce(
@@ -370,7 +367,58 @@ async function run() {
         0
       );
 
-      res.send({ totalBookings: totalBookings?.length, totalPrice, chartData,daysAgo });
+      res.send({
+        totalBookings: totalBookings?.length,
+        totalPrice,
+        chartData,
+        daysAgo,
+      });
+    });
+    app.get("/host-stat", verifyToken, verifyHost, async (req, res) => {
+      const { email } = req?.user;
+      const query = { "host.email": email };
+      const totalBookings = await bookingsCollection
+        .find(query, {
+          projection: {
+            price: 1,
+
+            bookingDate: 1,
+          },
+        })
+        .toArray();
+      const totalRooms = await roomsCollection.find(query).toArray();
+      const chartData = totalBookings.map((booking) => {
+        const day = new Date(booking?.bookingDate).getDate();
+        const month = new Date(booking?.bookingDate).getMonth() + 1;
+        return [`${day}/${month}`, booking?.price];
+      });
+      const createdAt = await usersCollection.findOne(
+        { email: email },
+        {
+          projection: {
+            timeStamp: 1,
+          },
+        }
+      );
+      const timeStamp = createdAt?.timeStamp;
+      const enteredDate = new Date(timeStamp);
+      const currentDate = new Date();
+      const diffInMs = currentDate - enteredDate;
+      const daysAgo = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
+
+      chartData.unshift(["Date", "Sales"]);
+      const totalPrice = totalBookings.reduce(
+        (sum, booking) => sum + booking.price,
+        0
+      );
+
+      res.send({
+        totalBookings: totalBookings?.length,
+        totalPrice,
+        chartData,
+        daysAgo,
+        totalRooms:totalRooms?.length
+      });
     });
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
