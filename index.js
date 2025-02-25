@@ -107,6 +107,23 @@ async function run() {
         res.send(error);
       }
     });
+    app.patch("/rooms/:id", verifyToken, verifyHost, async (req, res) => {
+      const { id } = req.params;
+      const roomData= req.body;
+      const query = { _id: new ObjectId(id) };
+      const updatedDoc={
+        $set:{
+          ...roomData,
+          isBooked:false
+        }
+      }
+      try {
+        const result = await roomsCollection.updateOne(query,updatedDoc);
+        res.send(result);
+      } catch (error) {
+        res.send(error);
+      }
+    });
 
     app.get("/rooms", async (req, res) => {
       try {
@@ -163,11 +180,7 @@ async function run() {
       res.send(result?.role);
     });
 
-    app.patch(
-      "/users/update-role/:email",
-      verifyToken,
-      verifyAdmin,
-      async (req, res) => {
+    app.patch("/users/update-role/:email",verifyToken,verifyAdmin,async (req, res) => {
         const { email } = req.params;
         const data = req.body;
         const query = { email: email };
