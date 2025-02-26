@@ -1,7 +1,8 @@
 const express = require("express");
 const app = express();
-require("dotenv").config();
+const nodemailer = require("nodemailer");
 const cors = require("cors");
+require("dotenv").config();
 const cookieParser = require("cookie-parser");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const jwt = require("jsonwebtoken");
@@ -28,7 +29,31 @@ const client = new MongoClient(uri, {
     deprecationErrors: true,
   },
 });
+// Stay-Bista275
+const sendEmail = async (to, message) => {
+  const transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      user: process.env.GMAIL, // Your Gmail address
+      pass: process.env.APP_PASS, // App Password from Google
+    },
+  });
 
+  transporter.verify((error, success) => {
+    if (error) {
+      console.error("Email transport setup failed:", error);
+    } else {
+      console.log("Email transporter is ready to send messages ✅");
+    }
+  });
+
+  await transporter.sendMail({
+    from: `Stay-Bista <${process.env.GMAIL}>`, // Sender's email
+    to, // Receiver's email
+    subject: message.subject, // Email subject
+    text: message.text, // Plain text body
+  });
+};
 async function run() {
   try {
     // auth related api
@@ -76,10 +101,17 @@ async function run() {
       }
     };
     // rooms related apis are blew
-    app.post("/rooms", async (req, res) => {
+    app.post("/rooms", verifyToken, verifyHost, async (req, res) => {
       const room = req.body;
       try {
         const result = await roomsCollection.insertOne(room);
+        sendEmail(
+          req?.user?.email,
+          (message = {
+            subject: "Your room added to our application",
+            text: "Congratulation!!, Happy journey to you. We hoped that your room will be booked very soon insa-allah",
+          })
+        );
         res.send(result);
       } catch (error) {
         res.send(error);
@@ -102,6 +134,13 @@ async function run() {
       const query = { _id: new ObjectId(id) };
       try {
         const result = await roomsCollection.deleteOne(query);
+        sendEmail(
+          req?.user?.email,
+          (message = {
+            subject: "Your room is deleted from our application",
+            text: "Your room data is removed from our database and server. you can not revert it",
+          })
+        );
         res.send(result);
       } catch (error) {
         res.send(error);
@@ -109,16 +148,20 @@ async function run() {
     });
     app.patch("/rooms/:id", verifyToken, verifyHost, async (req, res) => {
       const { id } = req.params;
-      const roomData= req.body;
+      const roomData = req.body;
       const query = { _id: new ObjectId(id) };
-      const updatedDoc={
-        $set:{
+      const updatedDoc = {
+        $set: {
           ...roomData,
-          isBooked:false
-        }
-      }
+          isBooked: false,
+        },
+      };
       try {
-        const result = await roomsCollection.updateOne(query,updatedDoc);
+        const result = await roomsCollection.updateOne(query, updatedDoc);
+        sendEmail(req.user.email,message={
+          subject:"Your Room Details Updated",
+          text:"Your room details is updated successfully. Now it ready for booked"
+        })
         res.send(result);
       } catch (error) {
         res.send(error);
@@ -180,7 +223,11 @@ async function run() {
       res.send(result?.role);
     });
 
-    app.patch("/users/update-role/:email",verifyToken,verifyAdmin,async (req, res) => {
+    app.patch(
+      "/users/update-role/:email",
+      verifyToken,
+      verifyAdmin,
+      async (req, res) => {
         const { email } = req.params;
         const data = req.body;
         const query = { email: email };
@@ -234,7 +281,10 @@ async function run() {
           currency: "usd",
           automatic_payment_methods: { enabled: true },
         });
-
+        sendEmail(req.user.email,message={
+          subject:"Your Payment Recieved",
+          text:`We recieved your payment. Your amount is :${priceInCents}cent.Room booked successfully`
+        })
         res.send({ paymentIntent: paymentIntent.client_secret });
       } catch (error) {
         res.status(500).send({ error: error.message });
@@ -430,7 +480,7 @@ async function run() {
         totalPrice,
         chartData,
         daysAgo,
-        totalRooms:totalRooms?.length
+        totalRooms: totalRooms?.length,
       });
     });
     // Send a ping to confirm a successful connection
